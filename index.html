@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 - 台灯</title>
+  <style>
+    :root {
+      --shade-hue: 40;
+      --on: 0;
+      --bg: #121921;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #121921;
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      transition: background 1.2s ease;
+    }
+
+    /* ── 星空 ── */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle var(--twinkle-dur, 3s) ease-in-out infinite;
+      animation-delay: var(--twinkle-delay, 0s);
+    }
+
+    @keyframes twinkle {
+
+      0%,
+      100% {
+        opacity: 0.2;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.9;
+        transform: scale(1.6);
+      }
+    }
+
+    /* 流星拖尾 */
+    .shooting-star {
+      position: absolute;
+      width: 100px;
+      height: 1.5px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.3), transparent);
+      border-radius: 1px;
+      filter: blur(0.5px);
+      animation: shoot var(--shoot-dur, 1s) linear forwards;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* 流星头部亮点 */
+    .shooting-star::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 3px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px 3px rgba(255, 255, 255, 0.7);
+    }
+
+    @keyframes shoot {
+      0% {
+        opacity: 0;
+        transform: translate(0, 0) rotate(-28deg);
+      }
+
+      8% {
+        opacity: 1;
+      }
+
+      35% {
+        opacity: 0;
+        transform: translate(var(--dx, 250px), var(--dy, 140px)) rotate(-28deg);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate(var(--dx, 250px), var(--dy, 140px)) rotate(-28deg);
+      }
+    }
+
+    /* ── 白云 ── */
+    .clouds-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .cloud {
+      position: absolute;
+      opacity: 0.06;
+      animation: drift var(--drift-dur, 50s) linear infinite;
+      animation-delay: var(--drift-delay, 0s);
+    }
+
+    @keyframes drift {
+      0% {
+        transform: translateX(-260px);
+      }
+
+      100% {
+        transform: translateX(calc(100vw + 260px));
+      }
+    }
+
+    /* ── 萤火虫 ── */
+    .firefly {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: #ffe8a0;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      box-shadow:
+        0 0 6px 3px rgba(255, 220, 100, 0.7),
+        0 0 15px 6px rgba(255, 200, 60, 0.35),
+        0 0 35px 12px rgba(255, 180, 30, 0.15);
+      animation: fireflyFloat var(--ff-dur, 8s) ease-in-out infinite;
+      animation-delay: var(--ff-delay, 0s);
+    }
+
+    @keyframes fireflyFloat {
+      0% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      20% {
+        transform: translate(var(--ff-x1, 40px), var(--ff-y1, -30px)) scale(1.2);
+      }
+
+      40% {
+        transform: translate(var(--ff-x2, -20px), var(--ff-y2, -50px)) scale(0.8);
+      }
+
+      60% {
+        transform: translate(var(--ff-x3, -50px), var(--ff-y3, -20px)) scale(1.1);
+      }
+
+      80% {
+        transform: translate(var(--ff-x4, 25px), var(--ff-y4, -40px)) scale(0.9);
+      }
+
+      100% {
+        transform: translate(0, 0) scale(1);
+      }
+    }
+
+    /* 灯光氛围层 */
+    .ambient-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      transition: opacity 1s ease;
+      background: radial-gradient(ellipse at 35% 45%,
+          hsla(var(--shade-hue), 70%, 50%, 0.12) 0%,
+          hsla(var(--shade-hue), 50%, 30%, 0.05) 40%,
+          transparent 70%);
+    }
+
+    body.lamp-on .ambient-glow {
+      opacity: 1;
+    }
+
+    /* 主容器 */
+    .main-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 80px;
+      flex-wrap: wrap;
+      padding: 40px 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── 台灯区域 ── */
+    .lamp-wrapper {
+      flex-shrink: 0;
+      width: 260px;
+      height: 420px;
+      position: relative;
+      cursor: default;
+    }
+
+    .lamp-wrapper svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* 台灯发光滤镜 */
+    .glow-filter {
+      filter: url(#blur-glow);
+    }
+
+    /* 拉绳手柄 hover 提示 */
+    #pull-handle {
+      cursor: grab;
+    }
+
+    #pull-handle:active {
+      cursor: grabbing;
+    }
+
+  /* 眼睛固定在灯罩内部 */
+
+  /* ── 头顶爱语 ── */
+  #love-text {
+    transition: opacity 0.5s ease;
+  }
+
+  @keyframes gentleFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  #love-text.visible {
+    animation: gentleFloat 3s ease-in-out infinite;
+  }
+
+  /* ── 表单区域 ── */
+  .form-container {
+      width: 360px;
+      max-width: 90vw;
+      padding: 48px 36px;
+      border-radius: 16px;
+      background: rgba(20, 28, 40, 0.92);
+      backdrop-filter: blur(20px);
+      border: 1.5px solid hsl(var(--shade-hue), 60%, 45%);
+      box-shadow:
+        0 0 40px hsla(var(--shade-hue), 60%, 50%, 0.15),
+        0 0 80px hsla(var(--shade-hue), 50%, 40%, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      opacity: 0;
+      transform: scale(0.85);
+      pointer-events: none;
+      transition:
+        border-color 0.6s ease,
+        box-shadow 0.6s ease;
+    }
+
+    body.lamp-on .form-container {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .form-title {
+      color: #e8edf3;
+      font-size: 26px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 32px;
+      letter-spacing: 2px;
+    }
+
+    .form-group {
+      margin-bottom: 22px;
+      position: relative;
+    }
+
+    .form-group label {
+      display: block;
+      color: #8899aa;
+      font-size: 13px;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: #e0e6ed;
+      font-size: 15px;
+      outline: none;
+      transition: all 0.35s ease;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input::placeholder {
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .form-group input:focus {
+      border-color: hsl(var(--shade-hue), 70%, 55%);
+      box-shadow:
+        0 0 18px hsla(var(--shade-hue), 70%, 55%, 0.45),
+        0 0 40px hsla(var(--shade-hue), 60%, 50%, 0.2),
+        inset 0 0 12px hsla(var(--shade-hue), 50%, 50%, 0.06);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      margin-top: 8px;
+      background: hsl(var(--shade-hue), 60%, 48%);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.35s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-login:hover {
+      background: hsl(var(--shade-hue), 65%, 55%);
+      box-shadow: 0 4px 24px hsla(var(--shade-hue), 60%, 50%, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-login:active {
+      transform: translateY(0);
+      transition: transform 0.1s;
+    }
+
+    /* 登录错误提示 */
+  .login-error {
+    text-align: center;
+    color: #ff6b7a;
+    font-size: 13px;
+    min-height: 20px;
+    margin-top: 8px;
+    letter-spacing: 1px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .forgot-link {
+      display: block;
+      text-align: center;
+      margin-top: 18px;
+      color: hsl(var(--shade-hue), 50%, 60%);
+      font-size: 13px;
+      text-decoration: none;
+      transition: color 0.3s;
+      letter-spacing: 1px;
+    }
+
+    .forgot-link:hover {
+      color: hsl(var(--shade-hue), 70%, 70%);
+      text-decoration: underline;
+    }
+
+    /* ── 页脚 ── */
+    .footer {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 14px;
+      letter-spacing: 4px;
+      font-weight: 300;
+      z-index: 2;
+      transition: color 0.8s;
+    }
+
+    body.lamp-on .footer {
+      color: hsla(var(--shade-hue), 50%, 60%, 0.45);
+    }
+
+    .footer .heart {
+      color: hsl(var(--shade-hue), 60%, 50%);
+      transition: color 0.8s;
+    }
+
+    /* ── 响应式 ── */
+    @media (max-width: 720px) {
+      .main-container {
+        flex-direction: column;
+        gap: 30px;
+      }
+
+      .lamp-wrapper {
+        width: 200px;
+        height: 340px;
+      }
+
+      .form-container {
+        width: 320px;
+        padding: 36px 26px;
+      }
+
+      .ambient-glow {
+        background: radial-gradient(ellipse at 50% 30%,
+            hsla(var(--shade-hue), 70%, 50%, 0.12) 0%,
+            hsla(var(--shade-hue), 50%, 30%, 0.05) 40%,
+            transparent 70%);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 星空层 -->
+  <div id="starfield"></div>
+
+  <!-- 白云层 -->
+  <div class="clouds-layer">
+    <svg class="cloud" viewBox="0 0 200 100" width="180" height="90" style="top:8%; --drift-dur:55s; --drift-delay:0s;">
+      <path d="M40,65 Q35,45 55,40 Q65,20 90,25 Q105,5 125,20 Q145,12 155,32 Q175,28 180,50 Q190,52 185,65 Z"
+        fill="#aac4d8" />
+    </svg>
+    <svg class="cloud" viewBox="0 0 200 100" width="220" height="100"
+      style="top:18%; --drift-dur:65s; --drift-delay:-20s;">
+      <path d="M30,60 Q25,42 45,35 Q55,15 80,20 Q95,5 115,18 Q135,8 148,28 Q168,22 172,44 Q185,48 178,60 Z"
+        fill="#b8cee0" />
+    </svg>
+    <svg class="cloud" viewBox="0 0 200 100" width="160" height="80"
+      style="top:70%; --drift-dur:48s; --drift-delay:-35s;">
+      <path d="M35,65 Q30,48 48,42 Q58,25 82,30 Q98,12 115,25 Q135,18 145,35 Q165,32 168,50 Q178,54 172,65 Z"
+        fill="#9db8cc" />
+    </svg>
+    <svg class="cloud" viewBox="0 0 200 100" width="200" height="95"
+      style="top:78%; --drift-dur:60s; --drift-delay:-8s;">
+      <path d="M25,58 Q20,40 42,34 Q50,18 75,22 Q92,5 112,18 Q130,8 142,28 Q165,22 170,42 Q182,46 175,58 Z"
+        fill="#aac4d8" />
+    </svg>
+  </div>
+
+  <!-- 萤火虫层 -->
+  <div class="firefly-field" id="firefly-field" style="opacity:0;transition:opacity 1.5s ease;"></div>
+
+  <!-- 环境光层 -->
+  <div class="ambient-glow"></div>
+
+  <!-- 主容器 -->
+  <div class="main-container">
+
+    <!-- ═══ 台灯 SVG ═══ -->
+    <div class="lamp-wrapper">
+      <svg viewBox="0 0 260 420" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- 发光模糊滤镜 -->
+          <filter id="blur-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+
+          <!-- 灯光渐变 -->
+          <linearGradient id="lightGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="hsl(40, 80%, 65%)" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="hsl(40, 80%, 65%)" stop-opacity="0" />
+          </linearGradient>
+
+          <!-- 底座渐变 -->
+          <linearGradient id="baseGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3a3d42" />
+            <stop offset="100%" stop-color="#1a1c20" />
+          </linearGradient>
+
+          <!-- 灯罩渐变 -->
+          <linearGradient id="shadeGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#4a4d54" />
+            <stop offset="100%" stop-color="#25272d" />
+          </linearGradient>
+
+          <!-- 灯罩内部渐变 -->
+          <linearGradient id="shadeInnerGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1c1e22" />
+            <stop offset="100%" stop-color="#3a3d44" />
+          </linearGradient>
+
+          <!-- 灯泡发光渐变 -->
+          <radialGradient id="bulbGlow" cx="0.5" cy="0.3" r="0.6">
+            <stop offset="0%" stop-color="hsl(40, 90%, 80%)" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="hsl(40, 80%, 50%)" stop-opacity="0" />
+          </radialGradient>
+
+          <!-- 虹膜渐变 — 少女心动紫粉 -->
+          <radialGradient id="irisGrad" cx="0.4" cy="0.35" r="0.7">
+            <stop offset="0%" stop-color="#c8a8e8" />
+            <stop offset="45%" stop-color="#9b6dc2" />
+            <stop offset="80%" stop-color="#6b3fa0" />
+            <stop offset="100%" stop-color="#3d1e6e" />
+          </radialGradient>
+        </defs>
+
+        <!-- ══ 灯光光束（灯亮时可见）══ -->
+        <g id="light-beam-group" opacity="0">
+          <polygon id="light-beam" points="85,218 175,218 230,390 30,390" fill="url(#lightGradient)"
+            style="transition: fill 0.4s;" />
+          <!-- 灯泡发光点 -->
+          <ellipse id="bulb" cx="130" cy="218" rx="28" ry="14" fill="url(#bulbGlow)" filter="url(#blur-glow)" />
+        </g>
+
+        <!-- ══ 底座 ══ -->
+        <rect x="75" y="360" rx="6" ry="6" width="110" height="22" fill="url(#baseGrad)" stroke="#2a2c30"
+          stroke-width="1" />
+        <rect x="85" y="356" rx="4" ry="4" width="90" height="8" fill="#3e4147" />
+        <!-- 底座装饰线 -->
+        <line x1="85" y1="370" x2="175" y2="370" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+
+        <!-- ══ 支柱 ══ -->
+        <rect id="pole" x="125" y="190" rx="2" ry="2" width="10" height="170" fill="#2d2f34" />
+        <!-- 支柱高光 -->
+        <rect x="127" y="190" width="3" height="170" fill="rgba(255,255,255,0.04)" rx="1" />
+
+        <!-- ══ 头顶冒泡：lyz LOVE zt ══ -->
+      <g id="love-text" style="opacity:0">
+        <text x="130" y="108" text-anchor="middle" fill="#ff7b9c" font-size="8" font-weight="500" letter-spacing="3">♥</text>
+        <text x="130" y="123" text-anchor="middle" fill="#ff7b9c" font-size="11" font-weight="700" letter-spacing="2">lyz LOVE zt</text>
+      </g>
+
+      <!-- ══ 灯罩 ══ -->
+        <path id="shade" d="M60,145 L200,145 L230,210 L30,210 Z" fill="url(#shadeGrad)" stroke="#1f2125"
+          stroke-width="1.5" stroke-linejoin="round" />
+        <!-- 灯罩内部 -->
+        <path d="M65,210 L195,210 L215,150 L45,150 Z" fill="url(#shadeInnerGrad)" />
+        <!-- 灯罩底部边框 -->
+        <rect x="28" y="208" rx="3" ry="3" width="204" height="6" fill="#1e2024" stroke="rgba(255,255,255,0.03)"
+          stroke-width="1" />
+
+        <!-- ══ 灯罩装饰线 ══ -->
+        <line x1="62" y1="160" x2="198" y2="160" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+
+        <!-- ══ 眼睛 ══ -->
+        <!-- 左眼 — 呆萌大圆眼，默认看向左边 -->
+        <g id="eye-left" transform="translate(100, 178)">
+          <circle cx="0" cy="0" r="15" fill="#fafeff" stroke="#4d4248" stroke-width="1.8" />
+          <circle id="pupil-left" cx="-3" cy="-1" r="6" fill="#1c1418" />
+          <circle id="highlight-left" cx="-6" cy="-5" r="2.5" fill="#fff" />
+        </g>
+
+        <!-- 右眼 — 略大，也看向左边 -->
+        <g id="eye-right" transform="translate(160, 178)">
+          <circle cx="0" cy="0" r="16" fill="#fafeff" stroke="#4d4248" stroke-width="1.8" />
+          <circle id="pupil-right" cx="-3" cy="-1" r="6.5" fill="#1c1418" />
+          <circle id="highlight-right" cx="-6" cy="-5" r="2.5" fill="#fff" />
+        </g>
+
+        <!-- 呆萌小圆嘴 -->
+        <circle cx="130" cy="200" r="2.5" fill="#5a4650" opacity="0.7" />
+
+        <!-- ══ 拉绳 ══ -->
+        <g id="pull-string-group">
+          <!-- 绳子主体：灯罩右侧与中间的中间，直线垂下 -->
+          <path id="string-path" d="M178,210 L178,340" fill="none" stroke="#6b6d72" stroke-width="2.5"
+            stroke-linecap="round" />
+          <!-- 拉绳手柄 -->
+          <circle id="pull-handle" cx="178" cy="340" r="9" fill="#5a5c62" stroke="#3a3c40" stroke-width="1.5"
+            style="cursor: grab;" />
+          <!-- 手柄高光 -->
+          <circle cx="175" cy="337" r="3" fill="rgba(255,255,255,0.12)" />
+        </g>
+
+        <!-- ══ 关灯时的灯罩暗角 ══ -->
+        <g id="off-dim" opacity="0.55">
+          <path d="M60,145 L200,145 L230,210 L30,210 Z" fill="#0a0d10" />
+        </g>
+      </svg>
+    </div>
+
+    <!-- ═══ 登录表单 ═══ -->
+    <div class="form-container" id="form-container">
+      <h2 class="form-title">欢迎回来</h2>
+      <div class="form-group">
+        <label>账号</label>
+        <input type="text" id="username" placeholder="请输入账号" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password" />
+      </div>
+      <div class="form-group" id="phone-group" style="display:none">
+        <label>手机号验证</label>
+        <input type="tel" id="phone-input" placeholder="请输入手机号" autocomplete="tel" />
+      </div>
+      <button class="btn-login" id="btn-login">登 录</button>
+      <p class="login-error" id="login-error"></p>
+
+    </div>
+
+  </div>
+
+  <!-- ═══ 页脚 ═══ -->
+  <div class="footer">lyz <span class="heart">♥</span> zt</div>
+
+  <!-- ═══ 脚本 ═══ -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Draggable.min.js"></script>
+
+  <script>
+    (function () {
+      /* ============================================
+         插件注册（带回退）
+         ============================================ */
+      var hasDraggable = (typeof Draggable !== 'undefined');
+      if (hasDraggable) {
+        gsap.registerPlugin(Draggable);
+      }
+
+      /* ============================================
+         DOM 引用
+         ============================================ */
+      var body = document.body;
+      var root = document.documentElement;
+      var formContainer = document.getElementById('form-container');
+      var lightBeamGroup = document.getElementById('light-beam-group');
+      var offDim = document.getElementById('off-dim');
+      var eyeLeft = document.getElementById('eye-left');
+      var eyeRight = document.getElementById('eye-right');
+      var pupilLeft = document.getElementById('pupil-left');
+      var pupilRight = document.getElementById('pupil-right');
+      var hlLeft = document.getElementById('highlight-left');
+      var hlRight = document.getElementById('highlight-right');
+      var stringPath = document.getElementById('string-path');
+      var pullHandle = document.getElementById('pull-handle');
+      var btnLogin = document.getElementById('btn-login');
+      var usernameInput = document.getElementById('username');
+      var passwordInput = document.getElementById('password');
+
+      /* ============================================
+         预定义绳子路径
+         ============================================ */
+      // 绳子静止时的弯曲路径 —— 二次贝塞尔
+      var STRING_REST = 'M178,210 L178,340';
+
+      /* ============================================
+         状态
+         ============================================ */
+      var isLampOn = false;
+      var currentHue = 40;
+      var isDragging = false;
+      var isAnimating = false;
+      var audioCtx = null;
+
+      /* ============================================
+         咔哒音效（Web Audio API 合成）
+         ============================================ */
+      function playClickSound() {
+        try {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          var t = audioCtx.currentTime;
+
+          var osc1 = audioCtx.createOscillator();
+          var osc2 = audioCtx.createOscillator();
+          var gain1 = audioCtx.createGain();
+          var gain2 = audioCtx.createGain();
+
+          osc1.type = 'square';
+          osc1.frequency.setValueAtTime(1200, t);
+          osc1.frequency.exponentialRampToValueAtTime(400, t + 0.06);
+
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(600, t);
+          osc2.frequency.exponentialRampToValueAtTime(200, t + 0.08);
+
+          gain1.gain.setValueAtTime(0.18, t);
+          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+          gain2.gain.setValueAtTime(0.12, t + 0.01);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+          osc1.connect(gain1).connect(audioCtx.destination);
+          osc2.connect(gain2).connect(audioCtx.destination);
+
+          osc1.start(t); osc1.stop(t + 0.07);
+          osc2.start(t + 0.005); osc2.stop(t + 0.1);
+        } catch (_) { }
+      }
+
+      /* ============================================
+         随机色相
+         ============================================ */
+      function getRandomHue() {
+        return Math.floor(Math.random() * 360);
+      }
+
+      /* ============================================
+         更新全局配色 — CSS 变量 + SVG 渐变联动
+         ============================================ */
+      function updateColorScheme(hue) {
+        currentHue = hue;
+        root.style.setProperty('--shade-hue', hue);
+
+        var lightGrad = document.getElementById('lightGradient');
+        if (lightGrad) {
+          var stops = lightGrad.querySelectorAll('stop');
+          stops[0].setAttribute('stop-color', 'hsl(' + hue + ', 80%, 65%)');
+          stops[1].setAttribute('stop-color', 'hsl(' + hue + ', 80%, 65%)');
+        }
+
+        var bulbGlow = document.getElementById('bulbGlow');
+        if (bulbGlow) {
+          var bStops = bulbGlow.querySelectorAll('stop');
+          bStops[0].setAttribute('stop-color', 'hsl(' + hue + ', 90%, 80%)');
+          bStops[1].setAttribute('stop-color', 'hsl(' + hue + ', 80%, 50%)');
+        }
+
+        btnLogin.style.background = 'hsl(' + hue + ', 60%, 48%)';
+      }
+
+      /* ============================================
+         开启台灯
+         ============================================ */
+      function turnOn() {
+        if (isLampOn) return;
+        isLampOn = true;
+
+        var hue = getRandomHue();
+        updateColorScheme(hue);
+
+        body.classList.add('lamp-on');
+        root.style.setProperty('--on', '1');
+
+        gsap.to(lightBeamGroup, { opacity: 1, duration: 0.6, ease: 'power2.inOut' });
+        gsap.to(offDim, { opacity: 0, duration: 0.5 });
+
+        // 眼睛固定在台灯内部，不做旋转
+
+        // 表单弹簧动画
+        gsap.fromTo(formContainer,
+          { opacity: 0, scale: 0.8 },
+          {
+            opacity: 1, scale: 1,
+            duration: 0.9,
+            ease: 'elastic.out(1, 0.55)',
+            clearProps: 'transform'
+          }
+        );
+
+        // 萤火虫出现
+        document.getElementById("firefly-field").style.opacity = "1";
+
+        // 头顶爱语弹出
+        var loveText = document.getElementById("love-text");
+        loveText.style.opacity = "1";
+        loveText.classList.add("visible");
+
+        playClickSound();
+      }
+
+      /* ============================================
+         关闭台灯
+         ============================================ */
+      function turnOff() {
+        if (!isLampOn) return;
+        isLampOn = false;
+
+        body.classList.remove('lamp-on');
+        root.style.setProperty('--on', '0');
+
+        gsap.to(lightBeamGroup, { opacity: 0, duration: 0.35, ease: 'power2.in' });
+        gsap.to(offDim, { opacity: 0.55, duration: 0.4 });
+
+        // 眼睛固定在台灯内部，不做旋转
+
+        gsap.to(formContainer, {
+          opacity: 0, scale: 0.85,
+          duration: 0.3, ease: 'power2.in'
+        });
+
+        // 萤火虫消失
+        document.getElementById("firefly-field").style.opacity = "0";
+
+        // 头顶爱语消失
+        var loveText = document.getElementById("love-text");
+        loveText.style.opacity = "0";
+        loveText.classList.remove("visible");
+
+        playClickSound();
+      }
+
+      /* ============================================
+         绳子回弹动画 — 使用 GSAP attr 驱动 path d 属性
+         elastic.out 缓动产生弹动/摆动效果，替代 MorphSVGPlugin
+         ============================================ */
+      function animateStringBack() {
+        isAnimating = true;
+
+        // attr: { d: ... } 对直线路径做平滑插值
+        gsap.to(stringPath, {
+          attr: { d: STRING_REST },
+          duration: 0.65,
+          ease: 'elastic.out(1, 0.35)'
+        });
+
+        gsap.to(pullHandle, {
+          y: 0,
+          duration: 0.65,
+          ease: 'elastic.out(1, 0.35)',
+          onComplete: function () { isAnimating = false; }
+        });
+
+        // 瞳孔缓慢回到左边初始位置
+        gsap.to([pupilLeft, pupilRight], {
+          attr: { cx: -3 },
+          duration: 0.6,
+          ease: 'power2.out'
+        });
+        gsap.to([hlLeft, hlRight], {
+          attr: { cx: -6 },
+          duration: 0.6,
+          ease: 'power2.out'
+        });
+      }
+
+      /* ============================================
+         绳子拉伸 — 拖拽时实时更新 path d
+         ============================================ */
+      function stretchString(dragY) {
+        var clamped = Math.max(0, Math.min(80, dragY));
+        var endY = 340 + clamped;
+        stringPath.setAttribute('d', 'M178,210 L178,' + endY);
+
+        // 瞳孔从左(-3)缓慢扫到右(+7)，看向登录表单
+        var t = clamped / 80;             // 0 → 1
+        var look = -3 + t * 10;           // -3 → +7，共 10px 行程
+        pupilLeft.setAttribute('cx', look);
+        pupilRight.setAttribute('cx', look);
+        hlLeft.setAttribute('cx', -6 + t * 10);
+        hlRight.setAttribute('cx', -6 + t * 10);
+      }
+
+      /* ============================================
+         切换
+         ============================================ */
+      function toggleLamp() {
+        if (isLampOn) { turnOff(); } else { turnOn(); }
+      }
+
+      /* ============================================
+         星星生成
+         ============================================ */
+      function createStars() {
+        var container = document.getElementById("starfield");
+        var frag = document.createDocumentFragment();
+
+        for (var i = 0; i < 120; i++) {
+          var star = document.createElement("div");
+          star.className = "star";
+          var size = Math.random() * 3 + 1;
+          star.style.left = Math.random() * 100 + "%";
+          star.style.top = Math.random() * 100 + "%";
+          star.style.width = size + "px";
+          star.style.height = size + "px";
+          star.style.setProperty("--twinkle-dur", (Math.random() * 3 + 2) + "s");
+          star.style.setProperty("--twinkle-delay", (Math.random() * 4) + "s");
+          frag.appendChild(star);
+        }
+
+        container.appendChild(frag);
+      }
+
+      /* ============================================
+         萤火虫生成
+         ============================================ */
+      function createFireflies() {
+        var container = document.getElementById("firefly-field");
+        var frag = document.createDocumentFragment();
+
+        for (var i = 0; i < 18; i++) {
+          var ff = document.createElement("div");
+          ff.className = "firefly";
+          ff.style.left = (Math.random() * 90 + 5) + "%";
+          ff.style.top = (Math.random() * 85 + 5) + "%";
+          ff.style.setProperty("--ff-dur", (Math.random() * 6 + 6) + "s");
+          ff.style.setProperty("--ff-delay", (Math.random() * 8) + "s");
+          // 随机浮动轨迹，让每只萤火虫路径不同
+          ff.style.setProperty("--ff-x1", (Math.random() * 60 - 10) + "px");
+          ff.style.setProperty("--ff-y1", (Math.random() * -50 - 10) + "px");
+          ff.style.setProperty("--ff-x2", (Math.random() * 50 - 30) + "px");
+          ff.style.setProperty("--ff-y2", (Math.random() * -70 - 10) + "px");
+          ff.style.setProperty("--ff-x3", (Math.random() * 70 - 50) + "px");
+          ff.style.setProperty("--ff-y3", (Math.random() * -40 - 10) + "px");
+          ff.style.setProperty("--ff-x4", (Math.random() * 40 - 10) + "px");
+          ff.style.setProperty("--ff-y4", (Math.random() * -55 - 10) + "px");
+          // 每只萤火虫颜色微微不同：偏绿到偏黄
+          var hue = Math.random() * 30 + 40;
+          var glowColor = "rgba(255," + Math.floor(Math.random() * 40 + 200) + "," + Math.floor(Math.random() * 60 + 80);
+          ff.style.background = "hsl(" + hue + ", 90%, 70%)";
+          ff.style.boxShadow =
+            "0 0 6px 3px hsla(" + hue + ", 90%, 60%, 0.7)," +
+            "0 0 15px 6px hsla(" + hue + ", 80%, 50%, 0.35)," +
+            "0 0 35px 12px hsla(" + hue + ", 70%, 40%, 0.15)";
+          frag.appendChild(ff);
+        }
+
+        container.appendChild(frag);
+      }
+
+      /* ============================================
+         流星雨 — 每隔一段时间下一阵
+         ============================================ */
+      function meteorShower() {
+        var container = document.getElementById("starfield");
+        // 每阵流星雨 6-12 颗
+        var count = Math.floor(Math.random() * 7) + 6;
+        // 辐射点：在左上区域随机
+        var originX = Math.random() * 30;
+        var originY = Math.random() * 25;
+
+        for (var i = 0; i < count; i++) {
+          (function (delay) {
+            setTimeout(function () {
+              var meteor = document.createElement("div");
+              meteor.className = "shooting-star";
+
+              var startX = originX + Math.random() * 15;
+              var startY = originY + Math.random() * 10;
+              meteor.style.left = startX + "%";
+              meteor.style.top = startY + "%";
+
+              // 飞行距离：有远有近
+              var dx = Math.random() * 280 + 180;
+              var dy = Math.random() * 180 + 80;
+              meteor.style.setProperty("--dx", dx + "px");
+              meteor.style.setProperty("--dy", dy + "px");
+              meteor.style.setProperty("--shoot-dur", (Math.random() * 0.6 + 0.5) + "s");
+
+              container.appendChild(meteor);
+
+              // 动画结束后清理
+              setTimeout(function () {
+                if (meteor.parentNode) meteor.parentNode.removeChild(meteor);
+              }, 1200);
+            }, delay);
+          })(i * (Math.random() * 200 + 60)); // 阵内每颗间隔 60-260ms
+        }
+      }
+
+      /* ============================================
+         定时调度流星雨 — 每 8-18 秒下一阵
+         ============================================ */
+      function scheduleMeteorShower() {
+        var delay = Math.random() * 10000 + 8000;
+        setTimeout(function () {
+          meteorShower();
+          scheduleMeteorShower();
+          createFireflies(); // 递归调度下一阵
+        }, delay);
+      }
+
+      /* ============================================
+         眨眼卖萌 — 拉绳时触发
+         ============================================ */
+      function cuteBlink() {
+        // 眨眼：眼睛快速上下闭合再弹开
+        gsap.to([eyeLeft, eyeRight], {
+          scaleY: 0.08,
+          duration: 0.06,
+          ease: "power2.in",
+          transformOrigin: "center center",
+          onComplete: function () {
+            gsap.to([eyeLeft, eyeRight], {
+              scaleY: 1,
+              duration: 0.35,
+              ease: "elastic.out(1, 0.4)",
+              transformOrigin: "center center"
+            });
+          }
+        });
+      }
+
+      /* ============================================
+         拉绳拖拽 — GSAP Draggable（带回退到原生事件）
+         ============================================ */
+      function setupDrag() {
+        if (hasDraggable) {
+          Draggable.create(pullHandle, {
+            type: "y",
+            bounds: { minY: 0, maxY: 80 },
+            edgeResistance: 0.6,
+            dragResistance: 0.3,
+
+            onPress: function () {
+              if (isAnimating) return;
+              isDragging = true;
+              cuteBlink();
+              gsap.killTweensOf(stringPath);
+              gsap.killTweensOf(pullHandle);
+            },
+
+            onDrag: function () {
+              if (isAnimating) return;
+              stretchString(this.y);
+            },
+
+            onDragEnd: function () {
+              isDragging = false;
+              if (this.y >= 50) { toggleLamp(); }
+              animateStringBack();
+            }
+          });
+        } else {
+          var startY = 0, currentY = 0, dragging = false;
+
+          pullHandle.addEventListener("pointerdown", function (e) {
+            if (isAnimating) return;
+            dragging = true;
+            isDragging = true;
+            startY = e.clientY;
+            currentY = 0;
+            cuteBlink();
+            pullHandle.setPointerCapture(e.pointerId);
+            gsap.killTweensOf(stringPath);
+            gsap.killTweensOf(pullHandle);
+            e.preventDefault();
+          });
+
+          window.addEventListener("pointermove", function (e) {
+            if (!dragging) return;
+            var dy = e.clientY - startY;
+            currentY = Math.max(0, Math.min(80, dy));
+            gsap.set(pullHandle, { y: currentY });
+            stretchString(currentY);
+          });
+
+          window.addEventListener("pointerup", function (e) {
+            if (!dragging) return;
+            dragging = false;
+            isDragging = false;
+            if (currentY >= 50) { toggleLamp(); }
+            animateStringBack();
+          });
+        }
+      }
+
+      setupDrag();
+
+      /* ============================================
+         登录验证
+         ============================================ */
+      var loginAttempts = 0;       // 当前轮尝试次数
+      var loginRound = 1;          // 第几轮（1 或 2）
+      var loginLocked = false;     // 5 秒冷却锁定
+      var phoneUnlocked = false;   // 手机号验证模式
+      var countdownTimer = null;
+      var errorEl = document.getElementById("login-error");
+      var phoneGroup = document.getElementById("phone-group");
+      var phoneInput = document.getElementById("phone-input");
+      var CORRECT_USER = "2977752700";
+      var CORRECT_PASS = "2994618270";
+      var CORRECT_PHONE = "19808037768";
+
+      function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.style.opacity = "1";
+      }
+
+      function clearError() {
+        errorEl.style.opacity = "0";
+      }
+
+      // 5 秒冷却倒计时
+      function startCooldown() {
+        loginLocked = true;
+        var sec = 5;
+        btnLogin.textContent = sec + "s 后重试";
+        btnLogin.style.pointerEvents = "none";
+        countdownTimer = setInterval(function () {
+          sec--;
+          if (sec <= 0) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            loginLocked = false;
+            loginAttempts = 0;
+            btnLogin.textContent = "登 录";
+            btnLogin.style.pointerEvents = "auto";
+            clearError();
+          } else {
+            btnLogin.textContent = sec + "s 后重试";
+          }
+        }, 1000);
+      }
+
+      // 账号错误处理（不触发手机号验证）
+      function handleAccountFail(msg) {
+        showError(msg + "，再想想 ~");
+        gsap.fromTo(formContainer,
+          { x: -6 }, { x: 6, duration: 0.08, repeat: 4, yoyo: true, ease: "power1.inOut",
+            onComplete: function () { gsap.set(formContainer, { x: 0 }); }
+          }
+        );
+      }
+
+      // 密码错误处理（累计次数，触发手机号验证）
+      function handlePassFail(msg) {
+        loginAttempts++;
+        if (loginAttempts >= 3) {
+          if (loginRound === 1) {
+            // 第一轮 3 次用完 → 5 秒冷却
+            showError(msg + "，等待 5 秒后再试");
+            loginRound = 2;
+            loginAttempts = 0;
+            startCooldown();
+          } else {
+            // 第二轮 3 次用完 → 显示手机号输入
+            loginLocked = false;
+            if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+            phoneUnlocked = true;
+            showError("想一想我的手机号是多少呢 ~");
+            phoneGroup.style.display = "block";
+            phoneInput.focus();
+            btnLogin.textContent = "验证手机号";
+          }
+        } else {
+          showError(msg + "，还剩 " + (3 - loginAttempts) + " 次机会");
+        }
+        gsap.fromTo(formContainer,
+          { x: -6 }, { x: 6, duration: 0.08, repeat: 4, yoyo: true, ease: "power1.inOut",
+            onComplete: function () { gsap.set(formContainer, { x: 0 }); }
+          }
+        );
+      }
+
+      btnLogin.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        // 冷却中不能操作
+        if (loginLocked) {
+          return;
+        }
+
+        // 手机号验证模式
+        if (phoneUnlocked) {
+          var phone = phoneInput.value.trim();
+          if (!phone) {
+            showError("请输入手机号");
+            return;
+          }
+          if (phone === CORRECT_PHONE) {
+            clearError();
+            phoneGroup.style.display = "none";
+            doLoginSuccess();
+          } else {
+            showError("手机号不对哦，再试试 ~");
+            gsap.fromTo(formContainer,
+              { x: -4 }, { x: 4, duration: 0.06, repeat: 3, yoyo: true, ease: "power1.inOut",
+                onComplete: function () { gsap.set(formContainer, { x: 0 }); }
+              }
+            );
+          }
+          return;
+        }
+
+        var u = usernameInput.value.trim();
+        var p = passwordInput.value.trim();
+
+        if (!u || !p) {
+          showError("请填写账号和密码");
+          gsap.fromTo(formContainer,
+            { x: -6 }, { x: 6, duration: 0.08, repeat: 5, yoyo: true, ease: "power1.inOut",
+              onComplete: function () { gsap.set(formContainer, { x: 0 }); }
+            }
+          );
+          return;
+        }
+
+        if (u !== CORRECT_USER) {
+          handleAccountFail("账号错了");
+          return;
+        }
+
+        if (p !== CORRECT_PASS) {
+          handlePassFail("密码错了");
+          return;
+        }
+
+        // 正确
+        doLoginSuccess();
+      });
+
+      function doLoginSuccess() {
+        clearError();
+        btnLogin.textContent = "登录中…";
+        btnLogin.style.pointerEvents = "none";
+        setTimeout(function () {
+          btnLogin.textContent = "✓ 成功";
+          btnLogin.style.background = "hsl(" + currentHue + ", 50%, 40%)";
+          window.location.href = "https://www.baidu.com";
+        }, 600);
+      }
+
+      // 回车登录
+      [usernameInput, passwordInput, phoneInput].forEach(function (el) {
+        el.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); btnLogin.click(); }
+        });
+      });
+
+
+      /* ============================================
+         初始状态 — 台灯关闭，眼睛朝下
+         ============================================ */
+      root.style.setProperty('--shade-hue', currentHue);
+      root.style.setProperty('--on', '0');
+
+      // 眼睛初始状态固定，无需旋转
+
+      createStars();
+      scheduleMeteorShower();
+
+      console.log('台灯登录页已就绪 — 拉动绳子开启灯光吧！');
+    })();
+  </script>
+</body>
+
+</html>
