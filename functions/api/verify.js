@@ -6,22 +6,7 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ success: false, error: 'invalid_body' });
   }
 
-  const { username, password, phone, debug } = body;
-
-  // 调试模式：返回环境变量状态
-  if (debug === true) {
-    const info = {};
-    for (const key of ['LOGIN_USER', 'LOGIN_PASS', 'LOGIN_PHONE']) {
-      const val = env[key];
-      info[key] = {
-        exists: val !== undefined && val !== null,
-        type: typeof val,
-        length: val ? val.length : 0,
-        hasSpaces: val ? val !== val.trim() : false
-      };
-    }
-    return Response.json({ debug: true, env: info });
-  }
+  const { username, password, phone } = body;
 
   // 手机号验证
   if (phone) {
@@ -44,21 +29,6 @@ export async function onRequestPost({ request, env }) {
   }
 
   return Response.json({ success: true, token: makeToken(username) });
-}
-
-// 调试接口：查看环境变量状态（不暴露实际值）
-export async function onRequestGet({ env }) {
-  const info = {};
-  for (const key of ['LOGIN_USER', 'LOGIN_PASS', 'LOGIN_PHONE']) {
-    const val = env[key];
-    info[key] = {
-      exists: val !== undefined && val !== null,
-      type: typeof val,
-      length: val ? val.length : 0,
-      hasSpaces: val ? val !== val.trim() : false
-    };
-  }
-  return Response.json(info);
 }
 
 function makeToken(identifier) {
