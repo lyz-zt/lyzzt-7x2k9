@@ -238,7 +238,7 @@
   </div>
 
   <script>
-    (async function () {
+    (function () {
       // 登录检查
       var token = localStorage.getItem("blog_token");
       if (!token) {
@@ -246,21 +246,15 @@
         return;
       }
 
-      // 调用服务端验证 token 签名和有效期
-      var valid = false;
+      // 解析 token 检查是否过期
       try {
-        var resp = await fetch('/api/check', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: token })
-        });
-        var data = await resp.json();
-        valid = data.valid;
+        var payload = JSON.parse(atob(token));
+        if (payload.exp && Date.now() > payload.exp) {
+          localStorage.removeItem("blog_token");
+          window.location.href = "/index.html";
+          return;
+        }
       } catch (e) {
-        valid = false;
-      }
-
-      if (!valid) {
         localStorage.removeItem("blog_token");
         window.location.href = "/index.html";
         return;
