@@ -1076,9 +1076,7 @@
       var errorEl = document.getElementById("login-error");
       var phoneGroup = document.getElementById("phone-group");
       var phoneInput = document.getElementById("phone-input");
-      var CORRECT_USER = "2977752700";
-      var CORRECT_PASS = "2994618270";
-      var CORRECT_PHONE = "19808037768";
+      var API_BASE = "/api/verify";
 
       function showError(msg) {
         errorEl.textContent = msg;
@@ -1126,13 +1124,11 @@
         loginAttempts++;
         if (loginAttempts >= 3) {
           if (loginRound === 1) {
-            // 第一轮 3 次用完 → 5 秒冷却
             showError(msg + "，等待 5 秒后再试");
             loginRound = 2;
             loginAttempts = 0;
             startCooldown();
           } else {
-            // 第二轮 3 次用完 → 显示手机号输入
             loginLocked = false;
             if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
             phoneUnlocked = true;
@@ -1151,13 +1147,24 @@
         );
       }
 
-      btnLogin.addEventListener("click", function (e) {
+      // 调用后端 API 验证
+      async function verifyCredentials(body) {
+        try {
+          var resp = await fetch(API_BASE, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          return await resp.json();
+        } catch (e) {
+          return { success: false, error: "network" };
+        }
+      }
+
+      btnLogin.addEventListener("click", async function (e) {
         e.preventDefault();
 
-        // 冷却中不能操作
-        if (loginLocked) {
-          return;
-        }
+        if (loginLocked) return;
 
         // 手机号验证模式
         if (phoneUnlocked) {
@@ -1166,11 +1173,16 @@
             showError("请输入手机号");
             return;
           }
-          if (phone === CORRECT_PHONE) {
+          btnLogin.textContent = "验证中…";
+          btnLogin.style.pointerEvents = "none";
+          var result = await verifyCredentials({ phone: phone });
+          if (result.success) {
             clearError();
             phoneGroup.style.display = "none";
-            doLoginSuccess();
+            doLoginSuccess(result.token);
           } else {
+            btnLogin.textContent = "验证手机号";
+            btnLogin.style.pointerEvents = "auto";
             showError("手机号不对哦，再试试 ~");
             gsap.fromTo(formContainer,
               { x: -4 }, { x: 4, duration: 0.06, repeat: 3, yoyo: true, ease: "power1.inOut",
@@ -1194,28 +1206,42 @@
           return;
         }
 
-        if (u !== CORRECT_USER) {
+        btnLogin.textContent = "验证中…";
+        btnLogin.style.pointerEvents = "none";
+
+        var result = await verifyCredentials({ username: u, password: p });
+
+        if (result.success) {
+          doLoginSuccess(result.token);
+          return;
+        }
+
+        btnLogin.textContent = "登 录";
+        btnLogin.style.pointerEvents = "auto";
+
+        if (result.error === "network") {
+          showError("网络错误，请稍后再试");
+          return;
+        }
+
+        if (result.error === "wrong_account") {
           handleAccountFail("账号错了");
-          return;
-        }
-
-        if (p !== CORRECT_PASS) {
+        } else if (result.error === "wrong_password") {
           handlePassFail("密码错了");
-          return;
+        } else {
+          showError("验证失败，请重试");
         }
-
-        // 正确
-        doLoginSuccess();
       });
 
-      function doLoginSuccess() {
+      function doLoginSuccess(token) {
         clearError();
         btnLogin.textContent = "登录中…";
         btnLogin.style.pointerEvents = "none";
+        localStorage.setItem("blog_token", token);
         setTimeout(function () {
           btnLogin.textContent = "✓ 成功";
           btnLogin.style.background = "hsl(" + currentHue + ", 50%, 40%)";
-          window.location.href = "https://www.baidu.com";
+          window.location.href = "/blog.html";
         }, 600);
       }
 
